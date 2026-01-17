@@ -93,23 +93,69 @@ class InteractiveTokenSelector:
 
         return alternatives[:n_alternatives]
 
-    def display_path_tree(self, initial_prompt: str, selected_tokens: List[Dict]):
-        """Display the path tree of selected tokens"""
-        print("\nCurrent path tree:")
+    def display_full_tree(self, initial_prompt: str, history: List[Dict]):
+        """
+        Display the full expanding tree with all alternatives at each step.
+        Only the chosen path continues to expand; unchosen alternatives are leaves.
+
+        history = list of steps, each containing:
+            - all_alternatives: all options at this step
+            - selected_idx: which one was chosen
+        """
+        print("\nFull decision tree:")
         print("-" * 60)
         print(initial_prompt)
 
-        for i, token_info in enumerate(selected_tokens):
-            # Indentation based on depth
-            indent = "    " * (i + 1)
-
-            # Branch character (always use └─ for simplicity)
-            branch = "└─"
-
-            # Display token
-            print(f"{indent}{branch}[{token_info['choice_num']}] {token_info['token']} ({token_info['prob']:.2%})")
+        # Recursively build and display the tree
+        self._render_tree_level(history, depth=0, prefix="")
 
         print("-" * 60)
+
+    def _render_tree_level(self, history: List[Dict], depth: int, prefix: str):
+        """
+        Recursively render tree levels.
+
+        Args:
+            history: Full history of all steps
+            depth: Current depth in the tree
+            prefix: String prefix for proper indentation/continuation lines
+        """
+        if depth >= len(history):
+            return
+
+        step = history[depth]
+        all_alts = step['all_alternatives']
+        selected_idx = step['selected_idx']
+
+        for idx, alt in enumerate(all_alts):
+            is_chosen = (idx == selected_idx)
+            is_last = (idx == len(all_alts) - 1)
+
+            # Branch characters
+            if is_last:
+                branch = "└─"
+                extension = "  "  # No vertical line after last item
+            else:
+                branch = "├─"
+                extension = "│ "  # Vertical line continues
+
+            # Mark chosen path
+            if is_chosen:
+                if depth < len(history) - 1:
+                    marker = " ✓"
+                else:
+                    marker = " ✓ CHOSEN"
+            else:
+                marker = ""
+
+            # Display this alternative
+            print(f"{prefix}{branch}[{idx + 1}] {alt['token']} ({alt['prob']:.2%}){marker}")
+
+            # Only recurse down the chosen path
+            if is_chosen and depth < len(history) - 1:
+                # Build prefix for next level
+                next_prefix = prefix + extension + "  "
+                self._render_tree_level(history, depth + 1, next_prefix)
 
     def display_alternatives(self, alternatives: List[Dict], current_text: str):
         """Display alternatives in a simple numbered list"""
@@ -171,15 +217,16 @@ class InteractiveTokenSelector:
         # Start with initial prompt
         current_text = initial_prompt
         token_count = 0
-        selected_tokens = []  # Track selected tokens for tree display
+        history = []  # Track full history: all alternatives + what was chosen
 
         while True:
             print(f"\n{'=' * 60}")
             print(f"TOKEN #{token_count}")
             print('=' * 60)
 
-            # Display current path tree
-            self.display_path_tree(initial_prompt, selected_tokens)
+            # Display current full tree
+            if history:
+                self.display_full_tree(initial_prompt, history)
 
             # Get alternatives for next token
             alternatives = self.get_next_token_alternatives(
@@ -206,21 +253,20 @@ class InteractiveTokenSelector:
             selected_token = alternatives[selected_idx]["token"]
             selected_prob = alternatives[selected_idx]["prob"]
 
-            # Track this selection
-            selected_tokens.append({
-                "token": selected_token,
-                "prob": selected_prob,
-                "choice_num": selected_idx + 1
+            # Track this step in history (all alternatives + selection)
+            history.append({
+                "all_alternatives": alternatives,
+                "selected_idx": selected_idx
             })
 
             current_text += selected_token
             token_count += 1
 
-        # Show final result with tree
+        # Show final result with full tree
         print("\n" + "=" * 60)
-        print("         FINAL PATH TREE")
+        print("         FINAL DECISION TREE")
         print("=" * 60)
-        self.display_path_tree(initial_prompt, selected_tokens)
+        self.display_full_tree(initial_prompt, history)
 
         print("\n" + "=" * 60)
         print("         FINAL TEXT")
