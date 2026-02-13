@@ -2,17 +2,23 @@
 """
 WebSocket server for Token Space Colonization
 Wraps llama.cpp completion API for real-time token alternatives
+Builds complete token tree for frontend exploration
 """
 
 import json
 import asyncio
-from typing import List, Dict, Any
+import random
+from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import uvicorn
 
 app = FastAPI(title="Token Space Colonization API")
+
+# Tree generation settings
+MAX_DEPTH = 6  # How deep the tree goes
+TOKENS_PER_NODE = (5, 12)  # Random range for children per node
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -105,6 +111,61 @@ def extract_alternatives(token_data: Dict, n_alternatives: int) -> List[Dict]:
     return alternatives[:n_alternatives]
 
 
+def build_token_tree(
+    prompt: str,
+    max_depth: int = MAX_DEPTH,
+    current_depth: int = 0,
+    node_id: int = 0
+) -> tuple[Dict, int]:
+    """
+    Recursively build the full token tree.
+    Returns (tree_node, next_available_id)
+    """
+    if current_depth >= max_depth:
+        return None, node_id
+
+    # Get random number of alternatives for this node
+    n_alts = random.randint(*TOKENS_PER_NODE)
+    alternatives = get_token_alternatives(prompt, n_alternatives=n_alts)
+
+    if not alternatives:
+        return None, node_id
+
+    # Build node with children
+    children = []
+    next_id = node_id + 1
+
+    for alt in alternatives:
+        child_prompt = prompt + alt["token"]
+        child_node = {
+            "id": next_id,
+            "token": alt["token"],
+            "prob": alt["prob"],
+            "children": []
+        }
+        next_id += 1
+
+        # Recursively build subtree
+        subtree, next_id = build_token_tree(
+            child_prompt,
+            max_depth,
+            current_depth + 1,
+            next_id
+        )
+
+        if subtree and subtree.get("children"):
+            child_node["children"] = subtree["children"]
+
+        children.append(child_node)
+
+    return {
+        "id": node_id,
+        "token": "[ROOT]" if current_depth == 0 else "",
+        "prob": 1.0,
+        "children": children
+    }, next_id
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
@@ -146,6 +207,95 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "tokens",
                     "prompt": prompt,
                     "alternatives": alternatives
+                })
+
+            elif action == "build_tree":
+                prompt = request.get("prompt", "Once upon a time")
+                max_depth = request.get("max_depth", MAX_DEPTH)
+
+                # Notify client we're starting
+                await websocket.send_json({
+                    "type": "status",
+                    "message": "Building token tree..."
+                })
+
+                # Build the full tree (this takes time)
+                tree, _ = await asyncio.to_thread(
+                    build_token_tree,
+                    prompt,
+                    max_depth
+                )
+
+                # Send complete tree
+                await websocket.send_json({
+                    "type": "tree",
+                    "prompt": prompt,
+                    "tree": tree
+                })
+
+            elif action == "get_branch_tokens":
+                # Old action: get tokens for pre-built branches (linear)
+                prompt = request.get("prompt", "Once upon a time")
+                count = request.get("count", 100)
+
+                await websocket.send_json({
+                    "type": "status",
+                    "message": f"Fetching {count} tokens..."
+                })
+
+                tokens = []
+                current_prompt = prompt
+
+                for i in range(count):
+                    alts = await asyncio.to_thread(
+                        get_token_alternatives,
+                        current_prompt,
+                        n_alternatives=1
+                    )
+                    if alts:
+                        tokens.append(alts[0])
+                        current_prompt += alts[0]["token"]
+                    else:
+                        tokens.append({"token": "?", "prob": 0.0})
+
+                await websocket.send_json({
+                    "type": "branch_tokens",
+                    "tokens": tokens
+                })
+
+            elif action == "get_branch_tokens_multi":
+                # New action: get multiple alternatives at each branch point
+                prompt = request.get("prompt", "Once upon a time")
+                branches = request.get("branches", [])  # List of child counts per branch
+
+                total = sum(branches)
+                await websocket.send_json({
+                    "type": "status",
+                    "message": f"Fetching tokens for {len(branches)} branch points ({total} total)..."
+                })
+
+                # For each branch point, get that many alternatives
+                all_tokens = []
+                current_prompt = prompt
+
+                for num_children in branches:
+                    if num_children > 0:
+                        alts = await asyncio.to_thread(
+                            get_token_alternatives,
+                            current_prompt,
+                            n_alternatives=num_children
+                        )
+                        # Pad with placeholders if we didn't get enough
+                        while len(alts) < num_children:
+                            alts.append({"token": "?", "prob": 0.0})
+                        all_tokens.extend(alts[:num_children])
+                        # Advance prompt with first alternative for next branch
+                        if alts:
+                            current_prompt += alts[0]["token"]
+
+                await websocket.send_json({
+                    "type": "branch_tokens",
+                    "tokens": all_tokens
                 })
 
             elif action == "ping":
