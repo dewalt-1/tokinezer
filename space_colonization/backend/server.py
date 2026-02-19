@@ -298,6 +298,26 @@ async def websocket_endpoint(websocket: WebSocket):
                     "tokens": all_tokens
                 })
 
+            elif action == "get_options":
+                # New incremental action: get N token alternatives for current prompt
+                prompt = request.get("prompt", "Once upon a time")
+                count = request.get("count", 5)
+
+                alts = await asyncio.to_thread(
+                    get_token_alternatives,
+                    prompt,
+                    n_alternatives=count
+                )
+
+                # Ensure we have enough options
+                while len(alts) < count:
+                    alts.append({"token": "?", "prob": 0.0})
+
+                await websocket.send_json({
+                    "type": "token_options",
+                    "options": alts[:count]
+                })
+
             elif action == "ping":
                 await websocket.send_json({"type": "pong"})
 
