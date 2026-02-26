@@ -13,7 +13,7 @@ let MaxTokenOptions = 10;       // Max token choices
 let BackgroundGrowthRate = 3;   // Frames between background growth steps
 
 // Debug mode
-let showAttractors = true;
+let showAttractors = false;  // Set to true to see attractor dots
 
 // Data structures
 let attractors;
