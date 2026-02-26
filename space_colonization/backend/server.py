@@ -8,11 +8,37 @@ Builds complete token tree for frontend exploration
 import json
 import asyncio
 import random
+import os
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import uvicorn
+
+# MQTT Configuration (set MQTT_BROKER to enable)
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "")  # e.g., "other-pi.local" or "192.168.1.100"
+MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_TOPIC = os.environ.get("MQTT_TOPIC", "tokens/prompt")
+
+mqtt_client = None
+if MQTT_BROKER:
+    try:
+        import paho.mqtt.client as mqtt
+        mqtt_client = mqtt.Client()
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.loop_start()
+        print(f"MQTT connected to {MQTT_BROKER}:{MQTT_PORT}")
+    except Exception as e:
+        print(f"MQTT connection failed: {e}")
+        mqtt_client = None
+
+def publish_prompt(prompt: str):
+    """Publish current prompt to MQTT broker"""
+    if mqtt_client:
+        try:
+            mqtt_client.publish(MQTT_TOPIC, prompt)
+        except Exception as e:
+            print(f"MQTT publish error: {e}")
 
 app = FastAPI(title="Token Space Colonization API")
 
@@ -302,6 +328,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 # New incremental action: get N token alternatives for current prompt
                 prompt = request.get("prompt", "Once upon a time")
                 count = request.get("count", 5)
+
+                # Publish prompt to MQTT when user selects a token
+                publish_prompt(prompt)
 
                 alts = await asyncio.to_thread(
                     get_token_alternatives,
