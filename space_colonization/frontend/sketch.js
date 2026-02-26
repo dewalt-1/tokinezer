@@ -189,13 +189,6 @@ function draw() {
     // Draw current prompt at bottom
     drawPromptBar();
 
-    // Draw state indicator
-    fill(100);
-    noStroke();
-    textAlign(LEFT, TOP);
-    textSize(10);
-    let missedCount = nodes.filter(n => n.isMissed).length;
-    text('State: ' + state + ' | Nodes: ' + nodes.length + ' | Missed: ' + missedCount, 10, 10);
 }
 
 function growOneStep(isMissed, customTip, customTarget) {
@@ -491,20 +484,20 @@ function growMissedBranchesStep() {
 }
 
 function drawTree() {
-    // Draw missed branches first (dimmer)
+    // Draw missed branches first (white, thin)
     for (let node of nodes) {
         if (node.parent && node.isMissed) {
-            stroke(100, 100, 120, 80);  // Dim purple-gray
-            strokeWeight(1);
+            stroke(255);
+            strokeWeight(0.5);
             line(node.parent.pos.x, node.parent.pos.y, node.pos.x, node.pos.y);
         }
     }
 
-    // Draw selected path branches (bright)
+    // Draw selected path branches (white, thick)
     for (let node of nodes) {
         if (node.parent && node.isSelected) {
             stroke(255);
-            strokeWeight(2);
+            strokeWeight(2.5);
             line(node.parent.pos.x, node.parent.pos.y, node.pos.x, node.pos.y);
         }
     }

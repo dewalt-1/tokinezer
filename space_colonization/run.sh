@@ -9,13 +9,13 @@ echo ""
 # Check if llama.cpp server is running
 if ! curl -s http://localhost:8080/health > /dev/null 2>&1; then
     echo "WARNING: llama.cpp server not detected on port 8080"
-    echo "Start it with: llama-server -m /path/to/model.gguf --port 8080"
+    echo "Start it with: ./llama.cpp/llama-server -m /path/to/model.gguf --port 8080"
     echo ""
 fi
 
-# Kill any existing processes on our ports
-lsof -ti:8000 | xargs kill -9 2>/dev/null
-lsof -ti:8001 | xargs kill -9 2>/dev/null
+# Kill any existing processes on our ports (Linux compatible)
+fuser -k 8000/tcp 2>/dev/null || true
+fuser -k 8001/tcp 2>/dev/null || true
 sleep 1
 
 # Activate venv
