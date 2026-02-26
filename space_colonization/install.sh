@@ -21,12 +21,13 @@ echo "[1/4] Installing system dependencies..."
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip git cmake build-essential curl psmisc
 
-# Clone and build llama.cpp
+# Clone and build llama.cpp (using cmake)
 if [ ! -d "llama.cpp" ]; then
-    echo "[2/4] Cloning and building llama.cpp..."
+    echo "[2/4] Cloning and building llama.cpp (this takes a while)..."
     git clone https://github.com/ggerganov/llama.cpp
     cd llama.cpp
-    make -j$(nproc)
+    cmake -B build
+    cmake --build build --config Release -j$(nproc)
     cd ..
 else
     echo "[2/4] llama.cpp already exists, skipping..."
@@ -53,7 +54,7 @@ echo "1. Download a GGUF model (recommended: TinyLlama, Phi-2, or Qwen2 0.5B)"
 echo "   Example: wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 echo ""
 echo "2. Start the llama.cpp server:"
-echo "   ./llama.cpp/llama-server -m /path/to/model.gguf --port 8080 -c 2048"
+echo "   ./llama.cpp/build/bin/llama-server -m /path/to/model.gguf --port 8080 -c 2048"
 echo ""
 echo "3. In another terminal, start the visualization:"
 echo "   ./run.sh"

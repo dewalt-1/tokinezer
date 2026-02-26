@@ -35,7 +35,7 @@ chmod +x install.sh
 wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
 
 # Start llama.cpp server (Terminal 1)
-./llama.cpp/llama-server -m tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf --port 8080 -c 2048
+./llama.cpp/build/bin/llama-server -m tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf --port 8080 -c 2048
 
 # Start visualization (Terminal 2)
 ./run.sh
@@ -77,7 +77,7 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/tokinezer/space_colonization
-ExecStart=/bin/bash -c './llama.cpp/llama-server -m /home/pi/model.gguf --port 8080 -c 2048 & sleep 5 && ./run.sh'
+ExecStart=/bin/bash -c './llama.cpp/build/bin/llama-server -m /home/pi/model.gguf --port 8080 -c 2048 & sleep 5 && ./run.sh'
 Restart=on-failure
 
 [Install]

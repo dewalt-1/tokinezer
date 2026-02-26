@@ -9,7 +9,7 @@ echo ""
 # Check if llama.cpp server is running
 if ! curl -s http://localhost:8080/health > /dev/null 2>&1; then
     echo "WARNING: llama.cpp server not detected on port 8080"
-    echo "Start it with: ./llama.cpp/llama-server -m /path/to/model.gguf --port 8080"
+    echo "Start it with: ./llama.cpp/build/bin/llama-server -m /path/to/model.gguf --port 8080"
     echo ""
 fi
 
