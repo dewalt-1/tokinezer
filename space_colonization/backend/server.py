@@ -207,6 +207,9 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time token requests"""
     await websocket.accept()
 
+    # Track previous prompt to extract just the new token
+    previous_prompt = ""
+
     try:
         while True:
             # Receive request from client
@@ -329,8 +332,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 prompt = request.get("prompt", "Once upon a time")
                 count = request.get("count", 5)
 
-                # Publish prompt to MQTT when user selects a token
-                publish_prompt(prompt)
+                # Extract and publish only the new token (difference from previous prompt)
+                if prompt.startswith(previous_prompt) and len(prompt) > len(previous_prompt):
+                    new_token = prompt[len(previous_prompt):]
+                    publish_prompt(new_token)
+                previous_prompt = prompt
 
                 alts = await asyncio.to_thread(
                     get_token_alternatives,
