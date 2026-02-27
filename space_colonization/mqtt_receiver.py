@@ -30,16 +30,15 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
-    prompt = msg.payload.decode("utf-8")
+    token = msg.payload.decode("utf-8")
     output_file = userdata["output"]
 
-    # Write prompt to file
-    with open(output_file, "w") as f:
-        f.write(prompt)
+    # Append token to file (builds up the full text)
+    with open(output_file, "a") as f:
+        f.write(token)
 
-    # Also print to console (truncated)
-    display = prompt if len(prompt) < 60 else prompt[:57] + "..."
-    print(f"Updated: {display}")
+    # Also print to console
+    print(f"+ {repr(token)}")
 
 
 def main():
